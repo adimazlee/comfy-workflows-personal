@@ -66,12 +66,23 @@ download_model "$HF_BASE/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.s
     "$DIFFUSION_DIR/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
 download_model "$HF_BASE/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors" \
     "$DIFFUSION_DIR/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
+# LoRA Lightning 4-steps (opsional di workflow, default OFF — tapi kalau nanti
+# diaktifkan buat hemat biaya GPU 5x lipat, filenya harus sudah ada di sini)
+download_model "$HF_BASE/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors" \
+    "$LORA_DIR/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"
+download_model "$HF_BASE/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors" \
+    "$LORA_DIR/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"
 
 # --- I2V ---
 download_model "$HF_BASE/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" \
     "$DIFFUSION_DIR/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
 download_model "$HF_BASE/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors" \
     "$DIFFUSION_DIR/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"
+# LoRA Lightning 4-steps untuk I2V (sama seperti T2V di atas)
+download_model "$HF_BASE/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors" \
+    "$LORA_DIR/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
+download_model "$HF_BASE/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors" \
+    "$LORA_DIR/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
 
 # --- Fun Control ---
 download_model "$HF_BASE/diffusion_models/wan2.2_fun_control_high_noise_14B_fp8_scaled.safetensors" \
