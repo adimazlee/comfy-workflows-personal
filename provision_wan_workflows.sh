@@ -1,20 +1,18 @@
 #!/bin/bash
 # =========================================================================
-# Custom provisioning script — Velora Wan 2.2 Fun Control & Animate (FIXED CLI)
+# Custom provisioning script — Velora Wan 2.2 Fun Control & Animate (FIXED)
 # =========================================================================
-# Hapus 'set -e' agar script tidak mati total jika 1 file gagal, tapi lanjut ke file berikutnya.
+# Tidak ada 'set -e' agar script tetap lanjut jika 1 file gagal
 
 echo "=== 1. Mempersiapkan Environment ==="
-# Install library Hugging Face (ini akan menginstal perintah 'hf' yang baru)
+# Pastikan huggingface_hub terupdate
 pip install -U "huggingface_hub[cli]"
 
-# Deteksi path ComfyUI secara dinamis
+# Deteksi path ComfyUI
 if [ -d "/workspace/ComfyUI" ]; then
     COMFY_DIR="/workspace/ComfyUI"
 elif [ -d "/root/ComfyUI" ]; then
     COMFY_DIR="/root/ComfyUI"
-elif [ -d "/home/ubuntu/ComfyUI" ]; then
-    COMFY_DIR="/home/ubuntu/ComfyUI"
 else
     COMFY_DIR="/workspace/ComfyUI"
     mkdir -p "$COMFY_DIR"
@@ -30,43 +28,42 @@ CLIP_VISION_DIR="$COMFY_DIR/models/clip_vision"
 
 mkdir -p "$WORKFLOW_DIR" "$DIFFUSION_DIR" "$TEXT_ENCODER_DIR" "$VAE_DIR" "$LORA_DIR" "$CLIP_VISION_DIR"
 
-echo "=== 2. Download Workflows (via curl, karena file JSON kecil) ==="
+echo "=== 2. Download Workflows ==="
 REPO_BASE="https://raw.githubusercontent.com/adimazlee/comfy-workflows-personal/refs/heads/main"
-curl -fSLC - "$REPO_BASE/video_wan2_2_14B_fun_control.json" -o "$WORKFLOW_DIR/video_wan2_2_14B_fun_control.json" || echo "️ Gagal download workflow fun control"
+curl -fSLC - "$REPO_BASE/video_wan2_2_14B_fun_control.json" -o "$WORKFLOW_DIR/video_wan2_2_14B_fun_control.json" || echo "⚠️ Gagal download workflow fun control"
 curl -fSLC - "$REPO_BASE/template_purz_wan22_animate_auto_character_replace.json" -o "$WORKFLOW_DIR/template_purz_wan22_animate_auto_character_replace.json" || echo "⚠️ Gagal download workflow animate"
 
-echo "=== 3. Download Shared Models (Text Encoder, VAE, Clip Vision) ==="
-# Menggunakan perintah 'hf' yang baru (pengganti huggingface-cli)
-echo "📥 Downloading Text Encoder..."
-hf download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Text Encoder"
+echo "=== 3. Download Shared Models ==="
+echo "📥 Text Encoder..."
+hf download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors --local-dir "$COMFY_DIR" || echo "⚠️ Gagal"
 
-echo "📥 Downloading VAE..."
-hf download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/vae/wan_2.1_vae.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download VAE"
+echo "📥 VAE..."
+hf download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/vae/wan_2.1_vae.safetensors --local-dir "$COMFY_DIR" || echo "⚠️ Gagal"
 
-echo " Downloading Clip Vision..."
-hf download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/clip_vision/clip_vision_h.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Clip Vision"
+echo "📥 Clip Vision..."
+hf download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/clip_vision/clip_vision_h.safetensors --local-dir "$COMFY_DIR" || echo "⚠️ Gagal"
 
 echo "=== 4. Download Wan 2.2 Fun Control Models ==="
-echo "📥 Downloading Fun Control High Noise..."
-hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_fun_control_high_noise_14B_fp8_scaled.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "️ Gagal download Fun Control High Noise"
+echo "📥 Fun Control High Noise..."
+hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_fun_control_high_noise_14B_fp8_scaled.safetensors --local-dir "$COMFY_DIR" || echo "⚠️ Gagal"
 
-echo "📥 Downloading Fun Control Low Noise..."
-hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_fun_control_low_noise_14B_fp8_scaled.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Fun Control Low Noise"
+echo "📥 Fun Control Low Noise..."
+hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_fun_control_low_noise_14B_fp8_scaled.safetensors --local-dir "$COMFY_DIR" || echo "⚠️ Gagal"
 
-echo "=== 5. Download Wan 2.2 Animate & LoRAs (Kijai) ==="
-echo "📥 Downloading Animate Model (Kijai 2.2)..."
-hf download Kijai/WanVideo_comfy_fp8_scaled Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors --local-dir "$DIFFUSION_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Animate Model"
+echo "=== 5. Download Wan 2.2 Animate & LoRAs ==="
+echo "📥 Animate Model (Kijai)..."
+hf download Kijai/WanVideo_comfy_fp8_scaled Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors --local-dir "$DIFFUSION_DIR" || echo "⚠️ Gagal"
 
-echo " Downloading Relight LoRA..."
-hf download Kijai/WanVideo_comfy LoRAs/Wan22_relight/WanAnimate_relight_lora_fp16.safetensors --local-dir "$LORA_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Relight LoRA"
+echo "📥 Relight LoRA..."
+hf download Kijai/WanVideo_comfy LoRAs/Wan22_relight/WanAnimate_relight_lora_fp16.safetensors --local-dir "$LORA_DIR" || echo "⚠️ Gagal"
 
-echo "📥 Downloading Lightx2v LoRA..."
-hf download Kijai/WanVideo_comfy Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors --local-dir "$LORA_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Lightx2v LoRA"
+echo "📥 Lightx2v LoRA..."
+hf download Kijai/WanVideo_comfy Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors --local-dir "$LORA_DIR" || echo "⚠️ Gagal"
 
-echo "=== 6. Memverifikasi File yang Terdownload ==="
-echo " Isi folder Diffusion Models:"
+echo "=== 6. Verifikasi ==="
+echo "📂 Isi folder Diffusion Models:"
 ls -lh "$DIFFUSION_DIR" | grep -iE "wan2.2|Wan2_2" || echo "⚠️ PERINGATAN: Tidak ada file model Wan 2.2 yang terdeteksi!"
 
-echo " "
+echo ""
 echo "✅ PROVISIONING SELESAI!"
 echo "💡 Silakan restart ComfyUI Anda agar custom nodes dan model baru terdeteksi."
