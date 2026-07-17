@@ -1,81 +1,75 @@
 #!/bin/bash
 # =========================================================================
-# Custom provisioning script — Velora Wan 2.2 (Robust + Purz Custom Pipeline)
+# Custom provisioning script — Velora Wan 2.2 Fun Control & Animate (FINAL)
 # =========================================================================
-set -e
+# Hapus 'set -e' agar script tidak mati total jika 1 file gagal, tapi lanjut ke file berikutnya.
 
-# 1. DETEKSI PATH COMFYUI SECARA DINAMIS
+echo "=== 1. Mempersiapkan Environment ==="
+# Pastikan huggingface-cli terinstall (JAUH lebih stabil daripada curl untuk file besar)
+pip install -U "huggingface_hub[cli]"
+
+# Deteksi path ComfyUI secara dinamis
 if [ -d "/workspace/ComfyUI" ]; then
     COMFY_DIR="/workspace/ComfyUI"
 elif [ -d "/root/ComfyUI" ]; then
     COMFY_DIR="/root/ComfyUI"
 elif [ -d "/home/ubuntu/ComfyUI" ]; then
     COMFY_DIR="/home/ubuntu/ComfyUI"
-elif [ -d "/app/ComfyUI" ]; then
-    COMFY_DIR="/app/ComfyUI"
 else
-    echo "❌ ERROR: Direktori ComfyUI tidak ditemukan! Membuat di /workspace/ComfyUI sebagai fallback."
     COMFY_DIR="/workspace/ComfyUI"
     mkdir -p "$COMFY_DIR"
 fi
-
 echo "✅ Menggunakan direktori ComfyUI di: $COMFY_DIR"
 
-# 2. SETUP DIREKTORI
 WORKFLOW_DIR="$COMFY_DIR/user/default/workflows"
 DIFFUSION_DIR="$COMFY_DIR/models/diffusion_models"
 TEXT_ENCODER_DIR="$COMFY_DIR/models/text_encoders"
 VAE_DIR="$COMFY_DIR/models/vae"
 LORA_DIR="$COMFY_DIR/models/loras"
 CLIP_VISION_DIR="$COMFY_DIR/models/clip_vision"
-CUSTOM_NODES_DIR="$COMFY_DIR/custom_nodes"
 
-# Direktori khusus untuk model ONNX & SAM2 (Dibutuhkan oleh pipeline Purz)
-SAM2_DIR="$COMFY_DIR/models/sam2"
-YOLO_DIR="$COMFY_DIR/models/yolo"
-VITPOSE_DIR="$COMFY_DIR/models/vitpose"
+mkdir -p "$WORKFLOW_DIR" "$DIFFUSION_DIR" "$TEXT_ENCODER_DIR" "$VAE_DIR" "$LORA_DIR" "$CLIP_VISION_DIR"
 
-mkdir -p "$WORKFLOW_DIR" "$DIFFUSION_DIR" "$TEXT_ENCODER_DIR" "$VAE_DIR" "$LORA_DIR" "$CLIP_VISION_DIR" "$CUSTOM_NODES_DIR" "$SAM2_DIR" "$YOLO_DIR" "$VITPOSE_DIR"
-
-echo "[provision_wan] === 1. Download Workflows ==="
+echo "=== 2. Download Workflows (via curl, karena file JSON kecil) ==="
 REPO_BASE="https://raw.githubusercontent.com/adimazlee/comfy-workflows-personal/refs/heads/main"
-curl -fSLC - "$REPO_BASE/video_wan2_2_14B_fun_control.json" -o "$WORKFLOW_DIR/video_wan2_2_14B_fun_control.json"
-curl -fSLC - "$REPO_BASE/template_purz_wan22_animate_auto_character_replace.json" -o "$WORKFLOW_DIR/template_purz_wan22_animate_auto_character_replace.json"
+curl -fSLC - "$REPO_BASE/video_wan2_2_14B_fun_control.json" -o "$WORKFLOW_DIR/video_wan2_2_14B_fun_control.json" || echo "⚠️ Gagal download workflow fun control"
+curl -fSLC - "$REPO_BASE/template_purz_wan22_animate_auto_character_replace.json" -o "$WORKFLOW_DIR/template_purz_wan22_animate_auto_character_replace.json" || echo "️ Gagal download workflow animate"
 
-echo "[provision_wan] === 2. Install Missing Custom Nodes (Purz Pipeline) ==="
-# 1. SAM2 (untuk node: Sam2Segmentation, DownloadAndLoadSAM2Model)
-git clone https://github.com/kijai/ComfyUI-SAM2.git "$CUSTOM_NODES_DIR/ComfyUI-SAM2" || echo "⚠️ ComfyUI-SAM2 sudah ada"
+echo "=== 3. Download Shared Models (Text Encoder, VAE, Clip Vision) ==="
+# Workflow Anda menggunakan wan_2.1_vae dan umt5_xxl standar
+echo " Downloading Text Encoder..."
+huggingface-cli download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "️ Gagal download Text Encoder"
 
-# 2. VideoHelperSuite (untuk node: VHS_LoadVideo, VHS_VideoInfo)
-git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git "$CUSTOM_NODES_DIR/ComfyUI-VideoHelperSuite" || echo "⚠️ ComfyUI-VideoHelperSuite sudah ada"
+echo "📥 Downloading VAE..."
+huggingface-cli download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/vae/wan_2.1_vae.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download VAE"
 
-# 3. PoseEstimation / ViTPose (untuk node: DrawViTPose, OnnxDetectionModelLoader, PoseAndFaceDetection)
-# Catatan: Sesuaikan URL repo jika "purz" menggunakan fork atau repo lain (misal ComfyUI-ViTPose)
-git clone https://github.com/Fannovel16/ComfyUI-PoseEstimation.git "$CUSTOM_NODES_DIR/ComfyUI-PoseEstimation" || echo "⚠️ ComfyUI-PoseEstimation sudah ada"
+echo "📥 Downloading Clip Vision..."
+huggingface-cli download Comfy-Org/Wan_2.1_ComfyUI_Repackaged split_files/clip_vision/clip_vision_h.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Clip Vision"
 
-echo "[provision_wan] === 3. Download Shared Models ==="
-HF_BASE="https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files"
-curl -fSLC - "$HF_BASE/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" -o "$TEXT_ENCODER_DIR/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
-curl -fSLC - "$HF_BASE/vae/wan_2.1_vae.safetensors" -o "$VAE_DIR/wan_2.1_vae.safetensors"
+echo "=== 4. Download Wan 2.2 Fun Control Models ==="
+# Menggunakan repo 2.2 sesuai nama file di JSON Anda
+echo "📥 Downloading Fun Control High Noise..."
+huggingface-cli download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_fun_control_high_noise_14B_fp8_scaled.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Fun Control High Noise"
 
-echo "[provision_wan] === 4. Download Fun Control Models ==="
-curl -fSLC - "$HF_BASE/diffusion_models/wan2.2_fun_control_high_noise_14B_fp8_scaled.safetensors" -o "$DIFFUSION_DIR/wan2.2_fun_control_high_noise_14B_fp8_scaled.safetensors"
-curl -fSLC - "$HF_BASE/diffusion_models/wan2.2_fun_control_low_noise_14B_fp8_scaled.safetensors" -o "$DIFFUSION_DIR/wan2.2_fun_control_low_noise_14B_fp8_scaled.safetensors"
+echo "📥 Downloading Fun Control Low Noise..."
+huggingface-cli download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_fun_control_low_noise_14B_fp8_scaled.safetensors --local-dir "$COMFY_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Fun Control Low Noise"
 
-echo "[provision_wan] === 5. Download Animate Models ==="
-curl -fSLC - "https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors" -o "$DIFFUSION_DIR/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors"
-curl -fSLC - "$HF_BASE/clip_vision/clip_vision_h.safetensors" -o "$CLIP_VISION_DIR/clip_vision_h.safetensors"
-curl -fSLC - "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/LoRAs/Wan22_relight/WanAnimate_relight_lora_fp16.safetensors" -o "$LORA_DIR/WanAnimate_relight_lora_fp16.safetensors"
-curl -fSLC - "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors" -o "$LORA_DIR/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors"
+echo "=== 5. Download Wan 2.2 Animate & LoRAs (Kijai) ==="
+echo "📥 Downloading Animate Model (Kijai 2.2)..."
+# Path spesifik untuk versi 2.2 di repo Kijai
+huggingface-cli download Kijai/WanVideo_comfy_fp8_scaled Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors --local-dir "$DIFFUSION_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Animate Model"
 
-echo "[provision_wan] === 6. Download Custom Pipeline Models (SAM2, YOLO, ViTPose) ==="
-# Model SAM2 untuk segmentasi karakter
-curl -fSLC - "https://huggingface.co/Kijai/SAM2_safetensors/resolve/main/sam2.1_hiera_base_plus.safetensors" -o "$SAM2_DIR/sam2.1_hiera_base_plus.safetensors"
-# Model YOLOv10 untuk deteksi objek/pose
-curl -fSLC - "https://huggingface.co/hustvl/yolov10m/resolve/main/yolov10m.onnx" -o "$YOLO_DIR/yolov10m.onnx"
-# Model ViTPose untuk wholebody pose estimation
-curl -fSLC - "https://huggingface.co/zgckd/vitpose-l-wholebody-onnx/resolve/main/vitpose-l-wholebody.onnx" -o "$VITPOSE_DIR/vitpose-l-wholebody.onnx"
+echo " Downloading Relight LoRA..."
+huggingface-cli download Kijai/WanVideo_comfy LoRAs/Wan22_relight/WanAnimate_relight_lora_fp16.safetensors --local-dir "$LORA_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Relight LoRA"
 
-echo "[provision_wan] === ✅ SELESAI! ==="
-echo "[provision_wan] Verifikasi file model custom..."
-ls -lh "$SAM2_DIR" "$YOLO_DIR" "$VITPOSE_DIR" || echo "⚠️ Peringatan: Beberapa file model custom mungkin gagal didownload."
+echo " Downloading Lightx2v LoRA..."
+huggingface-cli download Kijai/WanVideo_comfy Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors --local-dir "$LORA_DIR" --local-dir-use-symlinks False || echo "⚠️ Gagal download Lightx2v LoRA"
+
+echo "=== 6. Memverifikasi File yang Terdownload ==="
+echo "📂 Isi folder Diffusion Models:"
+ls -lh "$DIFFUSION_DIR" | grep -iE "wan2.2|Wan2_2" || echo "️ PERINGATAN: Tidak ada file model Wan 2.2 yang terdeteksi!"
+
+echo " "
+echo "✅ PROVISIONING SELESAI!"
+echo "💡 Catatan: Model SAM2 (sam2.1_hiera_base_plus.safetensors) dan ONNX (vitpose/yolov10) akan otomatis didownload oleh ComfyUI Impact Pack/KJNodes saat pertama kali workflow dijalankan."
+echo "💡 Silakan restart ComfyUI Anda agar custom nodes dan model baru terdeteksi."
