@@ -1,9 +1,7 @@
 #!/bin/bash
 # =========================================================================
-# Custom provisioning script — Velora Wan 2.2 Fun Control & Animate (FIXED)
+# Custom provisioning script — Velora Wan 2.2 Fun Control & Animate (FINAL FIXED)
 # =========================================================================
-# Tidak ada 'set -e' agar script tetap lanjut jika 1 file gagal
-
 echo "=== 1. Mempersiapkan Environment ==="
 # Pastikan huggingface_hub terupdate
 pip install -U "huggingface_hub[cli]"
@@ -19,14 +17,17 @@ else
 fi
 echo "✅ Menggunakan direktori ComfyUI di: $COMFY_DIR"
 
+# Buat folder yang diperlukan
 WORKFLOW_DIR="$COMFY_DIR/user/default/workflows"
 DIFFUSION_DIR="$COMFY_DIR/models/diffusion_models"
 TEXT_ENCODER_DIR="$COMFY_DIR/models/text_encoders"
 VAE_DIR="$COMFY_DIR/models/vae"
 LORA_DIR="$COMFY_DIR/models/loras"
 CLIP_VISION_DIR="$COMFY_DIR/models/clip_vision"
+DETECTION_DIR="$COMFY_DIR/models/detection"
+SAM2_DIR="$COMFY_DIR/models/sam2"
 
-mkdir -p "$WORKFLOW_DIR" "$DIFFUSION_DIR" "$TEXT_ENCODER_DIR" "$VAE_DIR" "$LORA_DIR" "$CLIP_VISION_DIR"
+mkdir -p "$WORKFLOW_DIR" "$DIFFUSION_DIR" "$TEXT_ENCODER_DIR" "$VAE_DIR" "$LORA_DIR" "$CLIP_VISION_DIR" "$DETECTION_DIR" "$SAM2_DIR"
 
 echo "=== 2. Download Workflows ==="
 REPO_BASE="https://raw.githubusercontent.com/adimazlee/comfy-workflows-personal/refs/heads/main"
@@ -50,7 +51,17 @@ hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wa
 echo "📥 Fun Control Low Noise..."
 hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/diffusion_models/wan2.2_fun_control_low_noise_14B_fp8_scaled.safetensors --local-dir "$COMFY_DIR" || echo "⚠️ Gagal"
 
-echo "=== 5. Download Wan 2.2 Animate & LoRAs ==="
+echo "=== 5. Download Detection & Segmentation Models (WAJIB untuk Animate) ==="
+echo "📥 ViTPose ONNX..."
+curl -fSLC - "https://huggingface.co/JunkyByte/easy_ViTPose/resolve/main/onnx/wholebody/vitpose-l-wholebody.onnx" -o "$DETECTION_DIR/vitpose-l-wholebody.onnx" || echo "⚠️ Gagal download ViTPose"
+
+echo "📥 YOLOv10m ONNX..."
+curl -fSLC - "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx" -o "$DETECTION_DIR/yolov10m.onnx" || echo "⚠️ Gagal download YOLOv10m"
+
+echo "📥 SAM2.1 Model..."
+hf download Kijai/sam2-safetensors sam2.1_hiera_base_plus.safetensors --local-dir "$SAM2_DIR" || echo "⚠️ Gagal download SAM2"
+
+echo "=== 6. Download Wan 2.2 Animate & LoRAs ==="
 echo "📥 Animate Model (Kijai)..."
 hf download Kijai/WanVideo_comfy_fp8_scaled Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors --local-dir "$DIFFUSION_DIR" || echo "⚠️ Gagal"
 
@@ -60,7 +71,7 @@ hf download Kijai/WanVideo_comfy LoRAs/Wan22_relight/WanAnimate_relight_lora_fp1
 echo "📥 Lightx2v LoRA..."
 hf download Kijai/WanVideo_comfy Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors --local-dir "$LORA_DIR" || echo "⚠️ Gagal"
 
-echo "=== 6. Verifikasi ==="
+echo "=== 7. Verifikasi ==="
 echo "📂 Isi folder Diffusion Models:"
 ls -lh "$DIFFUSION_DIR" | grep -iE "wan2.2|Wan2_2" || echo "⚠️ PERINGATAN: Tidak ada file model Wan 2.2 yang terdeteksi!"
 
